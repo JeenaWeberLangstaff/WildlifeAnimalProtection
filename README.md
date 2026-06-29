@@ -1,75 +1,120 @@
-# Wildlife Poaching Detection
+Wildlife Poaching Detection
 
-AI-powered conservation monitoring system for real-time threat detection in African wildlife reserves.
+AI-powered conservation monitoring system for real-time threat detection in African wildlife reserves using acoustic classification.
 
-## Overview
+Overview
 
-This project combines an Edge Impulse audio classification model with a React web dashboard to detect potential poaching threats through acoustic monitoring. The system classifies environmental sounds and provides real-time alerts to rangers.
+This project uses audio classification to detect potential poaching threats through environmental sound monitoring. The system classifies acoustic signals into six categories and provides real-time alerts to rangers. Currently in active development with a planned migration from Edge Impulse to PyTorch with Wav2Vec2 fine-tuning.
 
-## Features
+Features
 
-- **Real-time Audio Monitoring** — Continuous classification of environmental sounds
-- **Audio Upload** — Classify pre-recorded audio files
-- **Location Tracking** — Tag detections with GPS coordinates
-- **Threat Alerts** — Visual indicators when gunshots or suspicious sounds detected
-- **Edge Deployment** — Lightweight model runs on low-power devices
 
-## Tech Stack
+Real-time Audio Monitoring — Continuous classification of environmental sounds
+Audio Upload — Classify pre-recorded audio files
+Location Tracking — Tag detections with GPS coordinates
+Threat Alerts — Visual indicators when gunshots or suspicious sounds detected
+Edge Deployment — Lightweight model runs on low-power devices
 
-**Frontend:**
-- React
-- Vite
 
-**Machine Learning:**
-- Edge Impulse
-- TensorFlow Lite
-- MFCC feature extraction
+Tech Stack
 
-**Audio Processing:**
-- FFmpeg
+Frontend: React, Vite
 
-## Audio Classes
+Machine Learning: Edge Impulse, TensorFlow Lite, MFCC + MFE feature extraction
 
-| Class | Samples | Description |
-|-------|---------|-------------|
-| Gunshots | 38 | Rifle shots at medium-to-far distance |
-| Footsteps | 55 | Human movement on various terrain |
-| Wildlife | 55 | Animal vocalizations (elephants, lions, birds) |
-| Natural Elements | 40 | Rain, wind (non-threatening ambient sounds) |
-| Thunder | 35 | Separated from natural elements to reduce gunshot confusion |
+Audio Processing: FFmpeg
 
-## Model Performance
+Dataset
 
-| Metric | Value |
-|--------|-------|
-| Overall Accuracy | 82.5% |
-| Gunshot Detection | 50% |
-| Weighted F1 Score | 0.81 |
-| Inferencing Time | 1 ms |
-| RAM Usage | 12.5 KB |
+330 total samples across 6 classes, 68/32 train/test split
 
-### Per-Class Results
+ClassTrainingTestTotalDescriptionFootsteps662086Human movement on various terrainGunshots731790Rifle shots at medium-to-far distanceNatural Elements48856Rain, wind (non-threatening ambient sounds)Thunder20424Separated from natural elements to reduce gunshot confusionVehicles20727Ranger and poacher vehicle soundsWildlife331447Animal vocalizations (elephants, lions, birds)
 
-| Class | Accuracy | F1 Score |
-|-------|----------|----------|
-| Footsteps | 78.5% | 0.74 |
-| Gunshots | 50.0% | 0.64 |
-| Natural Elements | 79.9% | 0.80 |
-| Thunder | 82.0% | 0.81 |
-| Wildlife | 89.6% | 0.91 |
+Original dataset (5 classes, 223 samples):
 
-## Getting Started
+ClassSamplesGunshots38Footsteps55Wildlife55Natural Elements40Thunder35
 
-### Prerequisites
+Model Performance
 
-- Node.js (v18+)
-- npm or yarn
-- FFmpeg (for audio processing)
+Experiment Comparison
 
-### Installation
+ModelWindowFeaturesClassesINT8 AccuracyImpulse #1 (baseline)1000msMFCC582.7%Impulse #2800msMFCC572.6%Impulse #3 (current)1000msMFCC + MFE677.7%
 
-```bash
-# Clone the repository
+Current Model: Impulse #3
+
+MFCC + MFE features, 1000ms window, 16KHz, 6 classes, 100 training cycles
+
+MetricValueOverall Accuracy77.7%ROC-AUC0.95Weighted Precision0.79Weighted Recall0.78Weighted F1 Score0.78
+
+Per-Class Results:
+
+ClassAccuracyF1 ScoreFootsteps84.2%0.82Gunshots74.4%0.56Natural Elements67.4%0.70Thunder78.5%0.79Vehicles41.6%0.50Wildlife89.3%0.92
+
+Original Model: Impulse #1
+
+MFCC features, 1000ms window, 16KHz, 5 classes, 100 training cycles
+
+ClassAccuracyF1 ScoreFootsteps78.5%0.74Gunshots50.0%0.64Natural Elements79.9%0.80Thunder82.0%0.81Wildlife89.6%0.91
+
+Key Findings
+
+Thunder Separation: Initially grouped with natural elements, causing severe gunshot confusion (18.9% accuracy). Separating thunder into its own class improved gunshot detection from 18.9% to 50% in the original model and 74.4% in the current model.
+
+Gunshot Detection Improvement: Switching from MFCC to MFCC + MFE features and expanding the gunshot dataset from 38 to 90 samples improved gunshot detection from 50% to 74.4%, despite adding a more complex 6-class problem.
+
+Vehicles Class: Added to improve real-world deployment accuracy. Currently shows 41.6% accuracy due to acoustic similarity with gunshots. More training data needed — 27 total samples is insufficient for this class.
+
+Window Size Impact: 1000ms windows consistently outperform 800ms windows, with a ~10 percentage point accuracy difference observed across experiments (Impulse #1 vs Impulse #2).
+
+Distant Gunshot Challenge: Adding distant/reverberant gunshot recordings decreased accuracy — highly echoing shots sound acoustically similar to thunder. Mid-distance recordings with minimal reverb perform better.
+
+Technical Details
+
+Audio Processing
+
+All audio samples processed with silence removal and standardization:
+
+bashffmpeg -i input.mp3 -af "silenceremove=stop_periods=-1:stop_duration=0.3:stop_threshold=-50dB" -ar 16000 output.wav
+
+MFCC Parameters (Impulse #1 and #3)
+
+ParameterValueNumber of coefficients13Frame length0.02sFrame stride0.02sFilter number32FFT length256Frequency range0–8000 Hz
+
+MFE Parameters (Impulse #3)
+
+ParameterValueFrame length0.02sFrame stride0.01sFilter number40FFT length256Frequency range0–8000 Hz
+
+Neural Network Architecture
+
+Input features
+    ↓
+Reshape
+    ↓
+1D Conv/Pool (8 filters, kernel 3)
+    ↓
+Dropout (0.25)
+    ↓
+1D Conv/Pool (16 filters, kernel 3)
+    ↓
+Dropout (0.25)
+    ↓
+Flatten
+    ↓
+Output (6 classes)
+
+Getting Started
+
+Prerequisites
+
+
+Node.js (v18+)
+npm or yarn
+FFmpeg
+
+
+Installation
+
+bash# Clone the repository
 git clone https://github.com/JeenaWeberLangstaff/AnimalProtection.git
 
 # Navigate to project directory
@@ -80,19 +125,15 @@ npm install
 
 # Start development server
 npm run dev
-```
 
-The dashboard will be available at `http://localhost:5173`
+The dashboard will be available at http://localhost:5173
 
-### Build for Production
+Build for Production
 
-```bash
-npm run build
-```
+bashnpm run build
 
-## Project Structure
+Project Structure
 
-```
 AnimalProtection/
 ├── src/
 │   ├── components/
@@ -105,136 +146,45 @@ AnimalProtection/
 │   ├── footsteps/
 │   ├── wildlife/
 │   ├── natural-elements/
-│   └── thunder/
+│   ├── thunder/
+│   └── vehicles/
 ├── index.html
 ├── vite.config.js
 └── package.json
-```
 
-## Technical Details
+Roadmap
 
-### Audio Processing
+Phase 2: PyTorch Migration (In Progress)
 
-All audio samples processed with silence removal and standardization:
 
-```bash
-ffmpeg -i input.mp3 -af "silenceremove=stop_periods=-1:stop_duration=0.3:stop_threshold=-50dB" -ar 16000 output.wav
-```
+Export dataset from Edge Impulse as WAV files
+Fine-tune Wav2Vec2 pretrained model on conservation audio dataset
+Train in Google Colab without compute time limits
+Target: 90%+ gunshot detection accuracy
 
-### MFCC Feature Extraction
 
-| Parameter | Value |
-|-----------|-------|
-| Number of coefficients | 13 |
-| Frame length | 0.02s |
-| Frame stride | 0.02s |
-| Filter number | 32 |
-| FFT length | 256 |
-| Frequency range | 0-8000 Hz |
+Phase 3: Deployment
 
-### Neural Network Architecture
 
-```
-Input (650 features)
-    ↓
-Reshape (13 columns)
-    ↓
-1D Conv/Pool (8 filters, kernel 3)
-    ↓
-Dropout (0.25)
-    ↓
-1D Conv/Pool (16 filters, kernel 3)
-    ↓
-Dropout (0.25)
-    ↓
-Flatten
-    ↓
-Output (5 classes)
-```
+Live microphone input
+SMS/email alert notifications to rangers
+Detection history log with timestamps
+Map visualization of detections
+Multi-sensor network support
+Audio-visual fusion (camera integration)
+Animal distress call and snare detection
 
-### Training Configuration
 
-- Epochs: 100
-- Learning rate: 0.001
-- Data augmentation: Off
+Data Sources
 
-## Key Findings
+Wildlife Sounds: Free Animal Sounds, Zapsplat, SoundDino, African Wild Dog Sound, ElevenLabs
 
-### Thunder Separation
+Gunshot Sounds: Epidemic Sound, GFX Sounds, Freesound (moosegravy)
 
-Initially, thunder was grouped with natural elements, causing severe gunshot confusion (18.9% accuracy). Separating thunder into its own class improved gunshot detection to 50%.
+Author
 
-Both gunshots and thunder produce impulsive, broadband sounds with decay characteristics. The model distinguishes them by attack shape and frequency content.
+Jeena Weber Langstaff
 
-### Distant Gunshot Challenge
-
-Adding distant/reverberant gunshot recordings decreased accuracy — highly echoing shots sound acoustically similar to thunder.
-
-**Recommendation:** Use mid-distance recordings with minimal reverb for training. Field deployment would benefit from location-specific training data.
-
-## Future Development
-
-- [ ] Live microphone input
-- [ ] Alert notifications (SMS/email to rangers)
-- [ ] Detection history log with timestamps
-- [ ] Map visualization of detections
-- [ ] Multi-sensor network support
-- [ ] Audio-visual fusion (camera integration)
-- [ ] Animal distress call detection (snare detection)
-- [ ] Expand gunshot dataset to 70-80 samples
-
-## Data Sources
-
-### Wildlife Sounds
-- [Free Animal Sounds - Jungle Animals](https://freeanimalsounds.org/jungle-animals)
-- [Zapsplat Sound Effects](https://www.zapsplat.com/sound-effect-categories/)
-- [SoundDino - Cheetah](https://sounddino.com/en/effects/cheetah/)
-- [African Wild Dog Sound](https://18498925-sound-effects-factory.mp3.pm/song/196381305-african-wild-dog-lycaon-pictus/)
-- [ElevenLabs - Elephant](https://elevenlabs.io/sound-effects/elephant)
-
-### Gunshot Sounds
-- [Epidemic Sound - Distant Gunshots](https://www.epidemicsound.com/sound-effects/search/?term=distant%20gunshots)
-- [GFX Sounds - Distant Shotgun](https://gfxsounds.com/page/7/?s=distant+shotgun)
-- [Freesound - Distant gun shots with wind noise](https://freesound.org/s/435407/) by moosegravy
-
-## Wildlife Dashboard
-
-A web-based interface that connects to the Edge Impulse audio classification model to detect potential poaching threats in wildlife reserves.
-
-### Dashboard Features
-
-- **Start Monitoring** — Begin real-time audio classification
-- **Upload Audio** — Classify pre-recorded audio files
-- **Get My Location** — Tag detections with GPS coordinates
-- **Current Detection** — Display classification results
-
-### Running the Dashboard
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The dashboard will be available at `http://localhost:5173`
-
-### Dashboard Tech Stack
-
-- React
-- Vite
-- Edge Impulse WebAssembly SDK
-
-## Author
-
-**Jeena Weber Langstaff**  
-University of Rhode Island  
-Computer Science & Psychology
-
-## License
-
-MIT License — See LICENSE file for details.
 
 ---
 
